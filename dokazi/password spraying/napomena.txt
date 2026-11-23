@@ -1,0 +1,22 @@
+NAPAD: Password spraying na Active Directory
+
+Datum: 22.11.2026.
+Napadac: KALI (10.10.10.102)
+Meta: DC01 (10.10.10.10), domen lab.local
+Alat: netexec (nxc smb), spisak korisnika + uobicajene lozinke
+
+STA JE SIEM UHVATIO (Wazuh):
+- 60122 Logon Failure (Windows event 4625) - pojedinacne neuspele prijave, 41x
+- 60204 Multiple Windows Logon Failures (level 10) - korelisani alarm, prepoznat spraying
+- 60115 User account locked out (Windows event 4740, level 9) - nalog zakljucan
+  MITRE: T1110 Brute Force, T1531 Account Access Removal
+- 92652 Successful Remote Logon ANONYMOUS LOGON - sporedni trag (moguci pass-the-hash)
+
+ODBRANA:
+- Account lockout policy (5 pokusaja / 15 min) zakljucala napadnute naloge
+- Napad zaustavljen bez probijanja ijednog naloga
+
+FAJLOVI:
+- wazuh_alert_4740.json - detalj alarma zakljucavanja
+- threat_hunting_report.pdf - izvestaj iz SIEM-a
+- screenshotovi/ - zakljucani nalozi, lista alarma

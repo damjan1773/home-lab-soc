@@ -1,0 +1,11 @@
+*wazuh-passwords*
+lozinke.txt
+passwords.txt
+spray*.txt
+*lozinke*
+*.html
+*_files/
+*.download
+secpol.cfg
+Thumbs.db
+desktop.ini

@@ -1,0 +1,112 @@
+{
+  "_index": "wazuh-alerts-4.x-2026.11.22",
+  "_id": "Cwp-BKIBIro6k-uhlDh_",
+  "_score": 1,
+  "_source": {
+    "agent": {
+      "ip": "10.10.10.10",
+      "name": "dc01",
+      "id": "002"
+    },
+    "manager": {
+      "name": "wazuh01"
+    },
+    "data": {
+      "win": {
+        "eventdata": {
+          "subjectLogonId": "0x3e7",
+          "targetUserName": "mmarkovic",
+          "subjectUserSid": "S-1-5-18",
+          "subjectDomainName": "LAB",
+          "targetSid": "S-1-5-21-2614169674-1556200887-4019958097-1106",
+          "subjectUserName": "DC01$"
+        },
+        "system": {
+          "eventID": "4740",
+          "keywords": "0x8020000000000000",
+          "providerGuid": "{54849625-5478-4994-a5ba-3e3b0328c30d}",
+          "level": "0",
+          "channel": "Security",
+          "opcode": "0",
+          "message": "\"A user account was locked out.\r\n\r\nSubject:\r\n\tSecurity ID:\t\tS-1-5-18\r\n\tAccount Name:\t\tDC01$\r\n\tAccount Domain:\t\tLAB\r\n\tLogon ID:\t\t0x3E7\r\n\r\nAccount That Was Locked Out:\r\n\tSecurity ID:\t\tS-1-5-21-2614169674-1556200887-4019958097-1106\r\n\tAccount Name:\t\tmmarkovic\r\n\r\nAdditional Information:\r\n\tCaller Computer Name:\t\"",
+          "version": "0",
+          "systemTime": "2026-11-22T18:22:08.3836983Z",
+          "eventRecordID": "23228",
+          "threadID": "804",
+          "computer": "DC01.lab.local",
+          "task": "13824",
+          "processID": "752",
+          "severityValue": "AUDIT_SUCCESS",
+          "providerName": "Microsoft-Windows-Security-Auditing"
+        }
+      }
+    },
+    "rule": {
+      "mail": false,
+      "level": 9,
+      "pci_dss": [
+        "8.1.6",
+        "11.4"
+      ],
+      "hipaa": [
+        "164.312.a.1"
+      ],
+      "tsc": [
+        "CC6.1",
+        "CC6.8",
+        "CC7.2",
+        "CC7.3"
+      ],
+      "description": "User account locked out (multiple login errors)",
+      "groups": [
+        "windows",
+        "windows_security",
+        "authentication_failures"
+      ],
+      "nist_800_53": [
+        "AC.7",
+        "SI.4"
+      ],
+      "gdpr": [
+        "IV_35.7.d"
+      ],
+      "firedtimes": 1,
+      "mitre": {
+        "technique": [
+          "Brute Force",
+          "Account Access Removal"
+        ],
+        "id": [
+          "T1110",
+          "T1531"
+        ],
+        "tactic": [
+          "Credential Access",
+          "Impact"
+        ]
+      },
+      "id": "60115",
+      "gpg13": [
+        "7.5"
+      ]
+    },
+    "decoder": {
+      "name": "windows_eventchannel"
+    },
+    "input": {
+      "type": "log"
+    },
+    "@timestamp": "2026-11-22T18:22:12.427Z",
+    "location": "EventChannel",
+    "id": "1795371732.3261279",
+    "timestamp": "2026-11-22T18:22:12.427+0000"
+  },
+  "fields": {
+    "timestamp": [
+      "2026-11-22T18:22:12.427Z"
+    ],
+    "@timestamp": [
+      "2026-11-22T18:22:12.427Z"
+    ]
+  }
+}
