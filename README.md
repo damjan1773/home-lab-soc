@@ -1,157 +1,157 @@
 # home-lab-soc
 
-Home lab za učenje administracije sistema i mreža, sa fokusom na bezbednost i nadzor (SOC). Cilj projekta je bio da se od nule izgradi mala "firma" u virtuelnom okruženju: Active Directory domen, Windows i Linux serveri, centralizovani nadzor (SIEM), a zatim da se nad tom mrežom izvedu stvarni napadi i da se izmeri da li ih nadzor prepoznaje i da li odbrana funkcioniše.
+A home lab for learning systems and network administration with a focus on security and monitoring (SOC). The goal was to build a small "company" network from scratch in a virtual environment — an Active Directory domain, Windows and Linux servers, a centralized SIEM — and then run real attacks against it to measure whether monitoring detects them and whether the defenses hold.
 
-Projekat pokriva ceo ciklus: **izgradnja infrastrukture → nadzor → napad → detekcija → hardening → ponovna provera**.
+The project covers the full cycle: **build infrastructure → monitor → attack → detect → harden → re-verify**.
 
 ---
 
-## Sadržaj
+## Contents
 
-- [Arhitektura](#arhitektura)
-- [Mašine](#mašine)
-- [Tehnologije](#tehnologije)
-- [Faze projekta](#faze-projekta)
-- [Napadi i detekcija](#napadi-i-detekcija)
+- [Architecture](#architecture)
+- [Machines](#machines)
+- [Technologies](#technologies)
+- [Project phases](#project-phases)
+- [Attacks and detection](#attacks-and-detection)
 - [Hardening](#hardening)
-- [Čemu me je projekat naučio](#čemu-me-je-projekat-naučio)
-- [Dokazi](#dokazi)
+- [What the project taught me](#what-the-project-taught-me)
+- [Evidence](#evidence)
 
 ---
 
-## Arhitektura
+## Architecture
 
-Cela mreža radi u VirtualBox-u, u izolovanoj NAT mreži `10.10.10.0/24` (LabNet). DC01 deli adrese (DHCP) i razrešava imena (DNS) za ceo domen.
+The whole network runs in VirtualBox, in an isolated NAT network `10.10.10.0/24` (LabNet). DC01 hands out addresses (DHCP) and resolves names (DNS) for the whole domain.
 
 ```mermaid
 graph TD
     subgraph LabNet["LabNet — 10.10.10.0/24"]
         DC01["DC01 · 10.10.10.10<br/>Windows Server 2025<br/>AD DS · DNS · DHCP"]
-        CLIENT01["CLIENT01 · DHCP<br/>Windows 11 Enterprise<br/>član domena"]
+        CLIENT01["CLIENT01 · DHCP<br/>Windows 11 Enterprise<br/>domain member"]
         LINUX01["LINUX01 · 10.10.10.20<br/>Ubuntu Server<br/>SSH · nginx"]
         WAZUH01["WAZUH01 · 10.10.10.30<br/>Wazuh SIEM<br/>manager · indexer · dashboard"]
-        KALI["KALI · 10.10.10.102<br/>Kali Linux<br/>napadač"]
+        KALI["KALI · 10.10.10.102<br/>Kali Linux<br/>attacker"]
     end
 
-    CLIENT01 -->|logovi| WAZUH01
-    DC01 -->|logovi| WAZUH01
-    LINUX01 -->|logovi| WAZUH01
-    KALI -.->|napad| DC01
-    KALI -.->|napad| LINUX01
+    CLIENT01 -->|logs| WAZUH01
+    DC01 -->|logs| WAZUH01
+    LINUX01 -->|logs| WAZUH01
+    KALI -.->|attack| DC01
+    KALI -.->|attack| LINUX01
 ```
 
 ---
 
-## Mašine
+## Machines
 
-| Mašina | OS | Adresa | Uloga |
+| Machine | OS | Address | Role |
 |---|---|---|---|
-| DC01 | Windows Server 2025 | 10.10.10.10 (statička) | Domain controller: Active Directory, DNS, DHCP |
-| CLIENT01 | Windows 11 Enterprise | DHCP (.100–.200) | Radna stanica zaposlenog, član domena |
-| LINUX01 | Ubuntu Server | 10.10.10.20 (statička) | Linux server: SSH, nginx web server |
-| WAZUH01 | Ubuntu Server + Wazuh | 10.10.10.30 (statička) | SIEM: skuplja i analizira logove sa svih mašina |
-| KALI | Kali Linux | 10.10.10.102 (DHCP) | Napadač (purple team) |
+| DC01 | Windows Server 2025 | 10.10.10.10 (static) | Domain controller: Active Directory, DNS, DHCP |
+| CLIENT01 | Windows 11 Enterprise | DHCP (.100–.200) | Employee workstation, domain member |
+| LINUX01 | Ubuntu Server | 10.10.10.20 (static) | Linux server: SSH, nginx web server |
+| WAZUH01 | Ubuntu Server + Wazuh | 10.10.10.30 (static) | SIEM: collects and analyzes logs from all machines |
+| KALI | Kali Linux | 10.10.10.102 (DHCP) | Attacker (purple team) |
 
-Domen: `lab.local`. Host mašina: Windows 11, 24 GB RAM.
-
----
-
-## Tehnologije
-
-- **Virtuelizacija:** VirtualBox (NAT Network, snapshotovi, port forwarding)
-- **Windows:** Active Directory Domain Services, DNS, DHCP, Group Policy (GPO), NTFS prava, Advanced Audit Policy
-- **Linux:** SSH i SSH hardening, nginx, ufw firewall, korisnici i prava (chmod/chown), systemd, journalctl, LVM
-- **SIEM:** Wazuh (manager, indexer, dashboard, agenti), Active Response, CIS Benchmark (Configuration Assessment)
-- **Napad:** nmap, hydra, netexec (crackmapexec)
-- **Okviri:** MITRE ATT&CK, CIS Benchmark
+Domain: `lab.local`. Host machine: Windows 11, 24 GB RAM.
 
 ---
 
-## Faze projekta
+## Technologies
 
-### 1. Infrastruktura (Windows)
-- Postavljen Windows Server 2025 kao domain controller, podignut domen `lab.local`
-- Konfigurisani DNS i DHCP (DC deli adrese i razrešava imena)
-- Napravljena OU struktura, korisnici, grupe po odeljenjima i poseban admin nalog
-- Windows 11 klijent priključen u domen
-- GPO: zabrana Control Panela (korisnički), logon banner (računarski), automatsko mapiranje mrežnih diskova po grupama (item-level targeting)
-- Fajl server sa NTFS pravima po grupama (pristup odvojen po odeljenjima)
-
-### 2. Infrastruktura (Linux)
-- Ubuntu Server: statička adresa, SSH, nginx
-- Linux administracija: korisnici i grupe, prava (chmod 770), servisi
-- Hardening: ufw firewall (dozvoljeni samo 22 i 80), SSH hardening (zabrana root prijave, MaxAuthTries)
-
-### 3. Nadzor (SIEM)
-- Postavljen Wazuh (all-in-one) na zaseban server
-- Instalirani agenti na DC01, CLIENT01 i LINUX01
-- Potvrđeno da SIEM vidi događaje sa svih mašina (prijave, neuspele prijave, promene)
-
-### 4. Napad i detekcija
-- Sa Kalija izvedeni napadi, praćeni u Wazuh-u (vidi tabelu niže)
-
-### 5. Hardening i ponovna provera
-- Politika lozinki, zaključavanje naloga, isključeni zastareli protokoli (NTLMv1/LM), SMB signing
-- Uključena audit politika (bez koje SIEM nije video neuspele prijave na DC)
-- Rezultat verifikovan kroz Wazuh CIS Configuration Assessment
+- **Virtualization:** VirtualBox (NAT Network, snapshots, port forwarding)
+- **Windows:** Active Directory Domain Services, DNS, DHCP, Group Policy (GPO), NTFS permissions, Advanced Audit Policy
+- **Linux:** SSH and SSH hardening, nginx, ufw firewall, users and permissions (chmod/chown), systemd, journalctl, LVM
+- **SIEM:** Wazuh (manager, indexer, dashboard, agents), Active Response, CIS Benchmark (Configuration Assessment)
+- **Attack:** nmap, hydra, netexec (crackmapexec)
+- **Frameworks:** MITRE ATT&CK, CIS Benchmark
 
 ---
 
-## Napadi i detekcija
+## Project phases
 
-| Napad | Alat | Meta | Šta je SIEM uhvatio |
+### 1. Infrastructure (Windows)
+- Set up Windows Server 2025 as a domain controller, built the `lab.local` domain
+- Configured DNS and DHCP (the DC hands out addresses and resolves names)
+- Created an OU structure, users, department-based groups, and a separate admin account
+- Joined a Windows 11 client to the domain
+- GPO: block Control Panel (user), logon banner (computer), automatic network drive mapping per group (item-level targeting)
+- File server with NTFS permissions per group (access separated by department)
+
+### 2. Infrastructure (Linux)
+- Ubuntu Server: static address, SSH, nginx
+- Linux administration: users and groups, permissions (chmod 770), services
+- Hardening: ufw firewall (only 22 and 80 allowed), SSH hardening (root login disabled, MaxAuthTries)
+
+### 3. Monitoring (SIEM)
+- Deployed Wazuh (all-in-one) on a dedicated server
+- Installed agents on DC01, CLIENT01, and LINUX01
+- Verified the SIEM sees events from every machine (logons, failed logons, changes)
+
+### 4. Attack and detection
+- Ran attacks from Kali, tracked in Wazuh (see table below)
+
+### 5. Hardening and re-verification
+- Password policy, account lockout, disabled legacy protocols (NTLMv1/LM), SMB signing
+- Enabled audit policy (without which the SIEM did not see failed logons on the DC)
+- Results verified through Wazuh CIS Configuration Assessment
+
+---
+
+## Attacks and detection
+
+| Attack | Tool | Target | What the SIEM caught |
 |---|---|---|---|
-| Skeniranje mreže | nmap | cela mreža | Indirektno, preko nginx logova na LINUX01 (HTTP 400). Zaključak: za pouzdano otkrivanje skeniranja treba mrežni IDS, ne samo host-based nadzor |
-| SSH brute force | hydra | LINUX01 | Korelisani alarm (rule 5763, "brute force"), pa rule 40112 "Multiple authentication failures followed by a success" (level 12) kad je lozinka probijena. MITRE T1110 |
-| SSH brute force (automatska odbrana) | hydra | LINUX01 | Active Response (firewall-drop) automatski blokirao adresu napadača u firewall-u na 180s |
-| Password spraying na AD | netexec | DC01 | rule 60204 "Multiple Windows Logon Failures" (level 10), rule 60115 "User account locked out" (event 4740, MITRE T1110 + T1531). Lockout policy zaustavio napad bez probijanja naloga |
+| Network scanning | nmap | whole network | Indirectly, via nginx logs on LINUX01 (HTTP 400). Takeaway: reliable scan detection needs a network IDS, not just host-based monitoring |
+| SSH brute force | hydra | LINUX01 | Correlated alert (rule 5763, "brute force"), then rule 40112 "Multiple authentication failures followed by a success" (level 12) once the password was cracked. MITRE T1110 |
+| SSH brute force (automated defense) | hydra | LINUX01 | Active Response (firewall-drop) automatically blocked the attacker's IP in the firewall for 180s |
+| Password spraying on AD | netexec | DC01 | rule 60204 "Multiple Windows Logon Failures" (level 10), rule 60115 "User account locked out" (event 4740, MITRE T1110 + T1531). Lockout policy stopped the attack without any account being cracked |
 
-Ključna lekcija kroz sve napade: **SIEM vidi samo ono što sistem zabeleži.** Neuspele prijave na domain controlleru nisu se pojavljivale dok nije uključena Advanced Audit Policy.
+Key lesson across all attacks: **the SIEM only sees what the system logs.** Failed logons on the domain controller did not appear until Advanced Audit Policy was enabled.
 
 ---
 
 ## Hardening
 
-Hardening Windows domena po CIS Benchmark-u za Windows Server 2025. Fokus je na konkretnim bezbednosnim merama i razlogu zašto se primenjuju, a ne na goloj brojci (CIS skor), jer deo CIS pravila u labu nije relevantan ili se ne može ispuniti.
+Hardening of the Windows domain against the CIS Benchmark for Windows Server 2025. The focus is on concrete security measures and the reason for each, rather than a raw number (the CIS score), since some CIS rules are not relevant to the lab or cannot be met in it.
 
-### Politika naloga i lozinki
-- **Politika lozinki** (14 znakova, istorija 24, složenost, max starost 365 dana) — otežava pogađanje i recikliranje lozinki.
-- **Zaključavanje naloga** (5 pokušaja / 15 min) — zaustavlja brute force i password spraying; u testu je zaključao napadnute naloge i prekinuo napad.
+### Account and password policy
+- **Password policy** (14 characters, history 24, complexity, max age 365 days) — makes guessing and reusing passwords harder.
+- **Account lockout** (5 attempts / 15 min) — stops brute force and password spraying; in testing it locked the targeted accounts and halted the attack.
 
-### Protokoli i enkripcija
-- **Isključen SMBv1** (DC01 + CLIENT01) — zastareo protokol kroz koji se širio WannaCry (EternalBlue). Deljeni folderi nastavili da rade preko SMBv2/v3.
-- **Isključen NTLMv1/LM** (samo NTLMv2) — uklanja slabe, probijive verzije provere lozinke.
-- **SMB signing** (klijent i server) — potpisuje saobraćaj, štiti od presretanja (MITM).
-- **Kerberos: samo AES (RC4 isključen)** — RC4 je slab i cilj Kerberoasting napada; ostavljeni samo AES128/AES256. Prijava domenskih naloga verifikovana posle promene.
+### Protocols and encryption
+- **Disabled SMBv1** (DC01 + CLIENT01) — a legacy protocol that WannaCry (EternalBlue) spread through. Shared folders kept working over SMBv2/v3.
+- **Disabled NTLMv1/LM** (NTLMv2 only) — removes weak, crackable versions of password validation.
+- **SMB signing** (client and server) — signs traffic, protecting against interception (MITM).
+- **Kerberos: AES only (RC4 disabled)** — RC4 is weak and a target of Kerberoasting; left only AES128/AES256. Domain account logon verified after the change.
 
-### Pristup i nalozi
-- **Onemogućena anonimna enumeracija SAM naloga** — sprečava da napadač bez naloga izvuče spisak korisnika.
-- **Windows LAPS** — svaka mašina ima jedinstvenu, nasumičnu lokalnu admin lozinku (20 znakova), koja se automatski rotira i čuva **šifrovano** u Active Directory (čita je samo Domain Admins). Sprečava bočno kretanje (lateral movement) napadača preko zajedničke lokalne lozinke.
+### Access and accounts
+- **Disabled anonymous enumeration of SAM accounts** — prevents an attacker without an account from pulling the user list.
+- **Windows LAPS** — each machine gets a unique, randomized local admin password (20 characters), automatically rotated and stored **encrypted** in Active Directory (readable only by Domain Admins). Prevents lateral movement through a shared local password.
 
 ### Audit
-- **Advanced Audit Policy** (Account Logon, Logon/Logoff, Account Management) — bez nje SIEM nije video neuspele prijave ni zaključavanja naloga na DC. Uključivanje je direktno povećalo vidljivost napada.
+- **Advanced Audit Policy** (Account Logon, Logon/Logoff, Account Management) — without it the SIEM did not see failed logons or account lockouts on the DC. Enabling it directly increased attack visibility.
 
-Svaki nalaz verifikovan kroz `net accounts` / `secedit`, `Get-LapsADPassword`, i kroz Wazuh Configuration Assessment (prelazak CIS pravila iz *Failed* u *Passed*).
-
----
-
-## Čemu me je projekat naučio
-
-- Postavljanje i administracija Active Directory domena (DNS, DHCP, GPO, korisnici, prava)
-- Linux administracija i hardening (SSH, firewall, servisi, prava)
-- Windows hardening po CIS Benchmark-u: politika lozinki i lockout, isključivanje zastarelih protokola (SMBv1, NTLMv1, RC4), SMB signing, Windows LAPS, audit politika
-- Rad sa SIEM-om: prikupljanje logova, pisanje pretraga, čitanje i tumačenje alarma, MITRE ATT&CK
-- Troubleshooting kao glavna veština: svaki problem rešavan obrascem **simptom → log → uzrok → rešenje** (DNS, sinhronizacija sata i Kerberos, sukob DHCP servera, APT lock, hipervizor na hostu, GPO ciljanje po grupi)
-- Veza između napada i odbrane: kako napad izgleda u logovima i kako hardening (audit, lockout, Active Response) menja ishod
+Every finding verified through `net accounts` / `secedit`, `Get-LapsADPassword`, and Wazuh Configuration Assessment (rules moving from *Failed* to *Passed*).
 
 ---
 
-## Dokazi
+## What the project taught me
 
-Folder `dokazi/` sadrži, po napadu:
-- JSON izvoz ključnih Wazuh alarma
-- PDF izveštaje generisane iz SIEM-a (Threat Hunting report)
-- Screenshotove (alarmi, zaključani nalozi, CIS pre/posle)
-- `napomena.txt` sa opisom svakog napada i uhvaćenih rule ID-eva
+- Setting up and administering an Active Directory domain (DNS, DHCP, GPO, users, permissions)
+- Linux administration and hardening (SSH, firewall, services, permissions)
+- Windows hardening against the CIS Benchmark: password and lockout policy, disabling legacy protocols (SMBv1, NTLMv1, RC4), SMB signing, Windows LAPS, audit policy
+- Working with a SIEM: collecting logs, writing queries, reading and interpreting alerts, MITRE ATT&CK
+- Troubleshooting as the core skill: every problem solved by the pattern **symptom → log → cause → fix** (DNS, clock sync and Kerberos, DHCP server conflict, APT lock, host hypervisor, GPO item-level targeting)
+- The link between attack and defense: how an attack looks in the logs, and how hardening (audit, lockout, Active Response) changes the outcome
 
-> Lab je izgrađen i napadan isključivo u izolovanom virtuelnom okruženju, na sopstvenim mašinama.
+---
+
+## Evidence
+
+The `dokazi/` folder contains, per attack:
+- JSON exports of key Wazuh alerts
+- PDF reports generated from the SIEM (Threat Hunting report)
+- Screenshots (alerts, locked-out accounts, CIS before/after)
+- `napomena.txt` with a description of each attack and the rule IDs it triggered
+
+> The lab was built and attacked entirely in an isolated virtual environment, on my own machines.
