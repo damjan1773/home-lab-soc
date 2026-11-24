@@ -1,6 +1,6 @@
 # home-lab-soc
 
-A home lab for learning systems and network administration with a focus on security and monitoring (SOC). The goal was to build a small "company" network from scratch in a virtual environment — an Active Directory domain, Windows and Linux servers, a centralized SIEM — and then run real attacks against it to measure whether monitoring detects them and whether the defenses hold.
+A home lab for learning systems and network administration with a focus on security and monitoring (SOC). The goal was to build a small "company" network from scratch in a virtual environment, an Active Directory domain, Windows and Linux servers, a centralized SIEM, and then run real attacks against it to measure whether monitoring detects them and whether the defenses hold.
 
 The project covers the full cycle: **build infrastructure → monitor → attack → detect → harden → re-verify**.
 
@@ -25,7 +25,7 @@ The whole network runs in VirtualBox, in an isolated NAT network `10.10.10.0/24`
 
 ```mermaid
 graph TD
-    subgraph LabNet["LabNet — 10.10.10.0/24"]
+    subgraph LabNet["LabNet · 10.10.10.0/24"]
         DC01["DC01 · 10.10.10.10<br/>Windows Server 2025<br/>AD DS · DNS · DHCP"]
         CLIENT01["CLIENT01 · DHCP<br/>Windows 11 Enterprise<br/>domain member"]
         LINUX01["LINUX01 · 10.10.10.20<br/>Ubuntu Server<br/>SSH · nginx"]
@@ -115,21 +115,21 @@ Key lesson across all attacks: **the SIEM only sees what the system logs.** Fail
 Hardening of the Windows domain against the CIS Benchmark for Windows Server 2025. The focus is on concrete security measures and the reason for each, rather than a raw number (the CIS score), since some CIS rules are not relevant to the lab or cannot be met in it.
 
 ### Account and password policy
-- **Password policy** (14 characters, history 24, complexity, max age 365 days) — makes guessing and reusing passwords harder.
-- **Account lockout** (5 attempts / 15 min) — stops brute force and password spraying; in testing it locked the targeted accounts and halted the attack.
+- **Password policy** (14 characters, history 24, complexity, max age 365 days): makes guessing and reusing passwords harder.
+- **Account lockout** (5 attempts / 15 min): stops brute force and password spraying; in testing it locked the targeted accounts and halted the attack.
 
 ### Protocols and encryption
-- **Disabled SMBv1** (DC01 + CLIENT01) — a legacy protocol that WannaCry (EternalBlue) spread through. Shared folders kept working over SMBv2/v3.
-- **Disabled NTLMv1/LM** (NTLMv2 only) — removes weak, crackable versions of password validation.
-- **SMB signing** (client and server) — signs traffic, protecting against interception (MITM).
-- **Kerberos: AES only (RC4 disabled)** — RC4 is weak and a target of Kerberoasting; left only AES128/AES256. Domain account logon verified after the change.
+- **Disabled SMBv1** (DC01 + CLIENT01): a legacy protocol that WannaCry (EternalBlue) spread through. Shared folders kept working over SMBv2/v3.
+- **Disabled NTLMv1/LM** (NTLMv2 only): removes weak, crackable versions of password validation.
+- **SMB signing** (client and server): signs traffic, protecting against interception (MITM).
+- **Kerberos: AES only (RC4 disabled)**: RC4 is weak and a target of Kerberoasting; left only AES128/AES256. Domain account logon verified after the change.
 
 ### Access and accounts
-- **Disabled anonymous enumeration of SAM accounts** — prevents an attacker without an account from pulling the user list.
-- **Windows LAPS** — each machine gets a unique, randomized local admin password (20 characters), automatically rotated and stored **encrypted** in Active Directory (readable only by Domain Admins). Prevents lateral movement through a shared local password.
+- **Disabled anonymous enumeration of SAM accounts**: prevents an attacker without an account from pulling the user list.
+- **Windows LAPS**: each machine gets a unique, randomized local admin password (20 characters), automatically rotated and stored **encrypted** in Active Directory (readable only by Domain Admins). Prevents lateral movement through a shared local password.
 
 ### Audit
-- **Advanced Audit Policy** (Account Logon, Logon/Logoff, Account Management) — without it the SIEM did not see failed logons or account lockouts on the DC. Enabling it directly increased attack visibility.
+- **Advanced Audit Policy** (Account Logon, Logon/Logoff, Account Management): without it the SIEM did not see failed logons or account lockouts on the DC. Enabling it directly increased attack visibility.
 
 Every finding verified through `net accounts` / `secedit`, `Get-LapsADPassword`, and Wazuh Configuration Assessment (rules moving from *Failed* to *Passed*).
 
