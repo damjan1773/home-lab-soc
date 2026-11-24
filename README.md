@@ -40,20 +40,6 @@ graph TD
     KALI -.->|napad| LINUX01
 ```
 
-Tekstualna verzija (ako se dijagram ne iscrta):
-
-```
-                     LabNet 10.10.10.0/24
-   +-----------------------------------------------------+
-   |  DC01 (.10)      Windows Server 2025 · AD/DNS/DHCP   |
-   |  CLIENT01        Windows 11 · član domena           |
-   |  LINUX01 (.20)   Ubuntu Server · SSH/nginx          |
-   |  WAZUH01 (.30)   Wazuh SIEM                          |
-   |  KALI (.102)     napadač                             |
-   +-----------------------------------------------------+
-   Svi serveri šalju logove na WAZUH01. KALI napada DC01 i LINUX01.
-```
-
 ---
 
 ## Mašine
@@ -126,16 +112,26 @@ Ključna lekcija kroz sve napade: **SIEM vidi samo ono što sistem zabeleži.** 
 
 ## Hardening
 
-Hardening DC01 po CIS Benchmark-u za Windows Server 2025. Umesto gole brojke (CIS skor), fokus je na konkretnim ispravljenim nalazima:
+Hardening Windows domena po CIS Benchmark-u za Windows Server 2025. Fokus je na konkretnim bezbednosnim merama i razlogu zašto se primenjuju, a ne na goloj brojci (CIS skor), jer deo CIS pravila u labu nije relevantan ili se ne može ispuniti.
 
-- Politika lozinki: minimalno 14 znakova, istorija 24, složenost, maksimalna starost 365 dana
-- Zaključavanje naloga: 5 pokušaja, 15 minuta
-- Isključen NTLMv1/LM (samo NTLMv2)
-- SMB signing (klijent i server)
-- Onemogućena anonimna enumeracija SAM naloga
-- Uključena Advanced Audit Policy (Account Logon, Logon/Logoff, Account Management)
+### Politika naloga i lozinki
+- **Politika lozinki** (14 znakova, istorija 24, složenost, max starost 365 dana) — otežava pogađanje i recikliranje lozinki.
+- **Zaključavanje naloga** (5 pokušaja / 15 min) — zaustavlja brute force i password spraying; u testu je zaključao napadnute naloge i prekinuo napad.
 
-Svaki nalaz verifikovan kroz `net accounts` / `secedit` i kroz Wazuh Configuration Assessment (prelazak pravila iz *Failed* u *Passed*).
+### Protokoli i enkripcija
+- **Isključen SMBv1** (DC01 + CLIENT01) — zastareo protokol kroz koji se širio WannaCry (EternalBlue). Deljeni folderi nastavili da rade preko SMBv2/v3.
+- **Isključen NTLMv1/LM** (samo NTLMv2) — uklanja slabe, probijive verzije provere lozinke.
+- **SMB signing** (klijent i server) — potpisuje saobraćaj, štiti od presretanja (MITM).
+- **Kerberos: samo AES (RC4 isključen)** — RC4 je slab i cilj Kerberoasting napada; ostavljeni samo AES128/AES256. Prijava domenskih naloga verifikovana posle promene.
+
+### Pristup i nalozi
+- **Onemogućena anonimna enumeracija SAM naloga** — sprečava da napadač bez naloga izvuče spisak korisnika.
+- **Windows LAPS** — svaka mašina ima jedinstvenu, nasumičnu lokalnu admin lozinku (20 znakova), koja se automatski rotira i čuva **šifrovano** u Active Directory (čita je samo Domain Admins). Sprečava bočno kretanje (lateral movement) napadača preko zajedničke lokalne lozinke.
+
+### Audit
+- **Advanced Audit Policy** (Account Logon, Logon/Logoff, Account Management) — bez nje SIEM nije video neuspele prijave ni zaključavanja naloga na DC. Uključivanje je direktno povećalo vidljivost napada.
+
+Svaki nalaz verifikovan kroz `net accounts` / `secedit`, `Get-LapsADPassword`, i kroz Wazuh Configuration Assessment (prelazak CIS pravila iz *Failed* u *Passed*).
 
 ---
 
@@ -143,6 +139,7 @@ Svaki nalaz verifikovan kroz `net accounts` / `secedit` i kroz Wazuh Configurati
 
 - Postavljanje i administracija Active Directory domena (DNS, DHCP, GPO, korisnici, prava)
 - Linux administracija i hardening (SSH, firewall, servisi, prava)
+- Windows hardening po CIS Benchmark-u: politika lozinki i lockout, isključivanje zastarelih protokola (SMBv1, NTLMv1, RC4), SMB signing, Windows LAPS, audit politika
 - Rad sa SIEM-om: prikupljanje logova, pisanje pretraga, čitanje i tumačenje alarma, MITRE ATT&CK
 - Troubleshooting kao glavna veština: svaki problem rešavan obrascem **simptom → log → uzrok → rešenje** (DNS, sinhronizacija sata i Kerberos, sukob DHCP servera, APT lock, hipervizor na hostu, GPO ciljanje po grupi)
 - Veza između napada i odbrane: kako napad izgleda u logovima i kako hardening (audit, lockout, Active Response) menja ishod
